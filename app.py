@@ -23,8 +23,149 @@ OUTPUT_DIR = ROOT / "成品"
 
 st.set_page_config(page_title="錄音工作室", page_icon="🎙️", layout="centered")
 
-STEP_LABELS = ["① 上傳檔案", "② 選項設定", "③ 溝通剪輯",
-               "④ 轉檔設定", "⑤ 完成出檔"]
+STEP_NAMES = ["上傳檔案", "選項設定", "溝通剪輯", "轉檔設定", "完成出檔"]
+
+# ---------- 視覺主題（深色錄音室 + 琥珀橘，Inter × Noto Sans TC）----------
+
+THEME_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+body, p, h1, h2, h3, h4, h5, h6, label, input, textarea,
+.stMarkdown, .stMarkdown div, .stMarkdown span,
+.stButton button, .stButton button p,
+[data-testid="stFormSubmitButton"] button p,
+[data-testid="stDownloadButton"] button p,
+[data-testid="stWidgetLabel"], [data-testid="stWidgetLabel"] p,
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {
+  font-family: 'Inter', 'Noto Sans TC', sans-serif !important;
+}
+
+[data-testid="stAppViewContainer"] {
+  background:
+    radial-gradient(1100px 500px at 15% -10%, #1E1B4B 0%, rgba(30,27,75,0) 60%),
+    radial-gradient(900px 500px at 110% 15%, rgba(249,115,22,.07) 0%, rgba(249,115,22,0) 55%),
+    #0F0F23;
+}
+[data-testid="stHeader"] { background: transparent; }
+[data-testid="stToolbar"] { display: none; }
+#MainMenu, footer { visibility: hidden; }
+.block-container { padding-top: 2.4rem; max-width: 780px; }
+
+h1, h2, h3 { color: #F8FAFC; }
+h3 { font-weight: 600; letter-spacing: .3px; }
+[data-testid="stCaptionContainer"] { color: #94A3B8; }
+
+/* 按鈕 */
+.stButton button, [data-testid="stFormSubmitButton"] button {
+  border-radius: 12px; font-weight: 600; padding: .62rem 1.15rem;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  cursor: pointer;
+}
+.stButton button[kind="primary"],
+[data-testid="stFormSubmitButton"] button[kind="primary"],
+[data-testid="stDownloadButton"] button[kind="primary"] {
+  background: linear-gradient(135deg, #F97316, #EA580C);
+  border: none; color: #fff;
+  box-shadow: 0 4px 18px rgba(249,115,22,.32);
+}
+.stButton button[kind="primary"]:hover,
+[data-testid="stFormSubmitButton"] button[kind="primary"]:hover,
+[data-testid="stDownloadButton"] button[kind="primary"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 7px 24px rgba(249,115,22,.48);
+}
+.stButton button[kind="secondary"] {
+  background: rgba(39,39,59,.55);
+  border: 1px solid rgba(148,163,184,.25); color: #E2E8F0;
+}
+.stButton button[kind="secondary"]:hover {
+  border-color: rgba(249,115,22,.7); color: #FDBA74;
+  transform: translateY(-1px);
+}
+
+/* 上傳區 */
+[data-testid="stFileUploader"] section {
+  background: rgba(39,39,59,.45);
+  border: 1.5px dashed rgba(249,115,22,.45);
+  border-radius: 16px;
+  transition: border-color .2s ease;
+}
+[data-testid="stFileUploader"] section:hover { border-color: #F97316; }
+
+/* 訊息卡 */
+[data-testid="stAlert"] {
+  background: rgba(30,27,75,.5);
+  border: 1px solid rgba(99,102,241,.35);
+  border-radius: 12px;
+}
+
+/* 摺疊區與輸入框 */
+[data-testid="stExpander"] {
+  background: rgba(39,39,59,.35);
+  border: 1px solid rgba(148,163,184,.14);
+  border-radius: 12px;
+}
+.stTextInput input {
+  background: #1A1A2E; border: 1px solid rgba(148,163,184,.25);
+  border-radius: 10px; color: #F8FAFC;
+}
+.stTextInput input:focus {
+  border-color: #F97316; box-shadow: 0 0 0 2px rgba(249,115,22,.22);
+}
+
+audio { width: 100%; }
+[data-testid="stAudio"] { margin: .3rem 0 .2rem; }
+
+/* 品牌區 */
+.as-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.as-brand-icon {
+  width: 48px; height: 48px; border-radius: 14px; flex: none;
+  background: linear-gradient(135deg, #F97316, #C2410C);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 20px rgba(249,115,22,.35);
+}
+.as-brand-title { font-size: 26px; font-weight: 700; color: #F8FAFC; line-height: 1.15; }
+.as-brand-sub { font-size: 11px; letter-spacing: 4px; color: #F97316; font-weight: 600; }
+
+/* 步驟指示器 */
+.as-stepper { display: flex; align-items: flex-start; margin: 4px 0 26px; }
+.as-step { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 72px; }
+.as-dot {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; transition: all .3s ease;
+}
+.as-todo .as-dot { background: #1A1A2E; border: 1.5px solid #33334D; color: #64748B; }
+.as-current .as-dot {
+  background: linear-gradient(135deg, #F97316, #EA580C); color: #fff;
+  box-shadow: 0 0 0 4px rgba(249,115,22,.20), 0 4px 14px rgba(249,115,22,.42);
+}
+.as-done .as-dot { background: rgba(249,115,22,.14); border: 1.5px solid #F97316; }
+.as-lbl { font-size: 12px; color: #64748B; }
+.as-current .as-lbl { color: #F8FAFC; font-weight: 600; }
+.as-done .as-lbl { color: #CBD5E1; }
+.as-bar { flex: 1; height: 2px; background: #33334D; margin-top: 16px; border-radius: 2px; }
+.as-bar.done { background: linear-gradient(90deg, #F97316, rgba(249,115,22,.35)); }
+</style>
+"""
+
+MIC_SVG = ('<svg width="24" height="24" viewBox="0 0 24 24" fill="none" '
+           'stroke="white" stroke-width="2" stroke-linecap="round" '
+           'stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 '
+           '6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>'
+           '<line x1="12" x2="12" y1="19" y2="22"/></svg>')
+
+CHECK_SVG = ('<svg width="15" height="15" viewBox="0 0 24 24" fill="none" '
+             'stroke="#F97316" stroke-width="3.2" stroke-linecap="round" '
+             'stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>')
+
+BRAND_HTML = (
+    '<div class="as-brand">'
+    f'<div class="as-brand-icon">{MIC_SVG}</div>'
+    '<div><div class="as-brand-title">錄音工作室</div>'
+    '<div class="as-brand-sub">AUDIO STUDIO · AI 人聲後製</div></div>'
+    '</div>')
 
 
 def init_state() -> None:
@@ -40,11 +181,19 @@ def init_state() -> None:
 
 def steps_bar() -> None:
     cur = st.session_state.step
-    parts = []
-    for i, label in enumerate(STEP_LABELS, 1):
-        parts.append(f"**:blue[{label}]**" if i == cur else f":gray[{label}]")
-    st.markdown("　".join(parts))
-    st.divider()
+    parts = ['<div class="as-stepper">']
+    for i, name in enumerate(STEP_NAMES, 1):
+        cls = ("as-done" if i < cur
+               else "as-current" if i == cur else "as-todo")
+        dot = CHECK_SVG if i < cur else str(i)
+        parts.append(f'<div class="as-step {cls}">'
+                     f'<div class="as-dot">{dot}</div>'
+                     f'<div class="as-lbl">{name}</div></div>')
+        if i < len(STEP_NAMES):
+            parts.append(f'<div class="as-bar{" done" if i < cur else ""}">'
+                         '</div>')
+    parts.append("</div>")
+    st.markdown("".join(parts), unsafe_allow_html=True)
 
 
 def goto(step: int) -> None:
@@ -304,7 +453,8 @@ def step5() -> None:
 
 def main() -> None:
     init_state()
-    st.title("🎙️ 錄音工作室")
+    st.markdown(THEME_CSS, unsafe_allow_html=True)
+    st.markdown(BRAND_HTML, unsafe_allow_html=True)
     steps_bar()
     {1: step1, 2: step2, 3: step3, 4: step4, 5: step5}[st.session_state.step]()
 
