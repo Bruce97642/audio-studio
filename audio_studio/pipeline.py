@@ -40,13 +40,16 @@ STYLES = {
         "equalizer=f=3200:t=q:w=1.2:g=2",
         "equalizer=f=10000:t=q:w=1.5:g=1",
     ],
-    # 廣播主持人：厚實、有磁性、貼耳 —— 兩段壓縮 + 低頻量感 + 諧波激勵
+    # 廣播主持人：胸腔共鳴 + 去濁 + 齒音清晰 + 類比飽和的「磁性」諧波，
+    # 兩段壓縮（膠水→punch）夾住整條鏈，最後補一點高頻空氣感
     "radio": [
-        "acompressor=threshold=-22dB:ratio=4:attack=5:release=180:makeup=4dB",
-        "bass=g=3:f=130",
-        "equalizer=f=3000:t=q:w=1.2:g=2.5",
-        "aexciter=amount=1.5",
-        "acompressor=threshold=-12dB:ratio=2:attack=3:release=120:makeup=1dB",
+        "acompressor=threshold=-24dB:ratio=3:attack=15:release=220:makeup=2dB",
+        "equalizer=f=115:t=q:w=1:g=4.5",
+        "equalizer=f=400:t=q:w=1.5:g=-2.5",
+        "equalizer=f=2800:t=q:w=1.1:g=3.5",
+        "asoftclip=type=tanh:threshold=0.75",
+        "acompressor=threshold=-13dB:ratio=2.5:attack=4:release=110:makeup=2.5dB",
+        "aexciter=amount=1.2",
     ],
     # 清亮：明亮清晰，適合教學與說明
     "bright": [
