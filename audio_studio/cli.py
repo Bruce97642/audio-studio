@@ -175,21 +175,31 @@ def _cmd_diagnose(args) -> None:
 
 
 def _cmd_speak(args) -> None:
+    from .clone import CLONE_VOICES, synthesize_clone
     from .tts import synthesize
     text = args.text
     maybe_file = Path(text)
     if maybe_file.suffix.lower() == ".txt" and maybe_file.is_file():
         text = maybe_file.read_text(encoding="utf-8")
-    out = synthesize(text, preset_name=args.voice, output=args.output,
-                     loudness=args.preset, enhance=not args.raw)
+    if args.voice in CLONE_VOICES:  # 克隆聲線走 F5-TTS
+        out = synthesize_clone(text, voice=args.voice, output=args.output,
+                               loudness=args.preset, enhance=not args.raw)
+    else:
+        out = synthesize(text, preset_name=args.voice, output=args.output,
+                         loudness=args.preset, enhance=not args.raw)
     print(f"  完成 → {out}")
 
 
 def _cmd_voices(args) -> None:
+    from .clone import CLONE_VOICES, available
     from .tts import VOICE_PRESETS
-    width = max(len(k) for k in VOICE_PRESETS)
+    all_voices = {**VOICE_PRESETS, **CLONE_VOICES}
+    width = max(len(k) for k in all_voices)
     for name, preset in VOICE_PRESETS.items():
         print(f"  {name:<{width}}  {preset['desc']}")
+    tag = "" if available() else "（需先執行 setup_clone.ps1）"
+    for name, preset in CLONE_VOICES.items():
+        print(f"  {name:<{width}}  {preset['desc']}{tag}")
 
 
 COMMANDS = {

@@ -263,18 +263,24 @@ def step1() -> None:
                     f"現場錄音_{datetime.now():%m%d_%H%M}.wav")
                 st.rerun()
         with tab_tts:
+            from audio_studio.clone import CLONE_VOICES
+            from audio_studio.clone import available as clone_available
             from audio_studio.tts import VOICE_PRESETS
             st.caption("貼上文稿，AI 直接幫你配音（需要網路）。"
                        "生成後可以直接剪輯、轉檔。")
+            # 克隆聲線（最自然）排在最前面；沒安裝就不顯示
+            options: list[str] = []
+            if clone_available():
+                options += [f"{name} — {p['desc']}"
+                            for name, p in CLONE_VOICES.items()]
+            options += [f"{name} — {p['desc']}"
+                        for name, p in VOICE_PRESETS.items()]
             with st.form("tts_form"):
                 script = st.text_area(
                     "文稿", height=160,
                     placeholder="例：花蓮光復鄉的有機蔬菜，來自太巴塱的黑土地。"
                                 "這個星期六，社區市集見。")
-                voice = st.selectbox(
-                    "配音風格",
-                    [f"{name} — {p['desc']}"
-                     for name, p in VOICE_PRESETS.items()])
+                voice = st.selectbox("配音風格", options)
                 use = st.radio("響度用途",
                                ["影片（YouTube / FB / IG）",
                                 "Podcast / 純聲音",
@@ -286,18 +292,28 @@ def step1() -> None:
                 if not script.strip():
                     st.error("文稿還是空的，先貼上要配音的文字。")
                 else:
-                    from audio_studio.tts import synthesize
                     voice_key = voice.split(" — ")[0]
                     preset = next(v for k, v in PRESET_MAP.items()
                                   if use.startswith(k))
+                    is_clone = voice_key in CLONE_VOICES
+                    note = ("（克隆語音在 CPU 上要 1～3 分鐘，請耐心等）"
+                            if is_clone else "")
                     try:
-                        with st.spinner(f"AI 配音中（{voice_key}）…"):
-                            out = synthesize(
-                                script, preset_name=voice_key,
-                                output=Path(st.session_state.workdir)
-                                / "配音.mp3",
-                                loudness=preset)
-                    except RuntimeError as exc:
+                        with st.spinner(f"AI 配音中（{voice_key}）…{note}"):
+                            if is_clone:
+                                from audio_studio.clone import (
+                                    synthesize_clone)
+                                out = synthesize_clone(
+                                    script, voice=voice_key,
+                                    output=Path(st.session_state.workdir)
+                                    / "配音.mp3", loudness=preset)
+                            else:
+                                from audio_studio.tts import synthesize
+                                out = synthesize(
+                                    script, preset_name=voice_key,
+                                    output=Path(st.session_state.workdir)
+                                    / "配音.mp3", loudness=preset)
+                    except (RuntimeError, ValueError) as exc:
                         st.error(str(exc))
                     else:
                         st.session_state.src = str(out)

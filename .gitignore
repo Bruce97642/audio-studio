@@ -21,3 +21,10 @@ workspace/
 
 # DeepFilterNet 的本機 Python 3.11 環境（用 setup_dfn.ps1 重建）
 .dfn311/
+
+# F5-TTS 語音克隆環境（用 setup_clone.ps1 重建）
+.clone311/
+tests/clone_out/
+
+# 克隆參考音（由 setup_clone.ps1 從 F5-TTS 內附語音產生，不進版控）
+voices/
