@@ -15,3 +15,6 @@ tests/batch/
 # 網頁精靈的工作區與成品
 workspace/
 成品/
+
+# 本機密鑰（雲端部署的密碼設定在 Streamlit Cloud 的 Secrets 後台，不進版控）
+.streamlit/secrets.toml

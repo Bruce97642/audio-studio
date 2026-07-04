@@ -30,6 +30,34 @@
 
 隨時可重跑驗證：`powershell -File tests\run_tests.ps1 -Full`
 
+## 🌐 線上版本（手機、其他電腦都能用）
+
+不用裝任何東西，瀏覽器打開網址就能用：
+
+**👉 [填入部署完成後的網址]**
+
+網址設有密碼保護，第一次打開會要求輸入密碼。
+
+<details>
+<summary>怎麼部署自己的線上版本（Streamlit Community Cloud，免費）</summary>
+
+1. 把這個 GitHub 專案 fork 或直接用你自己推上去的版本
+2. 打開 [share.streamlit.io](https://share.streamlit.io) → 用 GitHub 帳號登入
+3. 「New app」→ 選這個 repository → Main file 填 `app.py` → Deploy
+4. 部署完成後，進「Manage app → Settings → Secrets」，貼上：
+   ```
+   APP_PASSWORD = "改成你自己的密碼"
+   ```
+   儲存後網站會重啟，之後打開網址就會要求輸入這組密碼。
+5. 手機也能用同一個網址，行動版瀏覽器支援現場錄音功能（需允許麥克風權限）。
+
+`packages.txt`（安裝 ffmpeg）、`runtime.txt`（Python 版本）、`requirements.txt`
+都已經配置好，部署不需要額外設定。
+
+**免費額度的限制**：Streamlit Community Cloud 免費方案記憶體約 1GB，
+一般清理錄音沒問題；如果同時處理很長的錄音或勾選背景音樂分離，速度可能較慢。
+</details>
+
 ## 安裝
 
 需求：Windows / macOS / Linux，Python 3.10+，[FFmpeg](https://ffmpeg.org/)（要在 PATH 裡）。

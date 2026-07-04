@@ -491,9 +491,43 @@ def step5() -> None:
         st.rerun()
 
 
+def _cloud_password() -> str | None:
+    """雲端部署時若在 Secrets 設定 APP_PASSWORD，就要求輸入密碼。
+
+    本機執行沒有這個密鑰，一律直接放行——密碼只在公開網址上才有意義。
+    """
+    try:
+        return st.secrets.get("APP_PASSWORD") or None
+    except Exception:
+        return None
+
+
+def check_password() -> bool:
+    required = _cloud_password()
+    if not required or st.session_state.get("authed"):
+        return True
+
+    st.markdown(BRAND_HTML, unsafe_allow_html=True)
+    st.subheader("這是私人工具，請輸入密碼")
+    with st.form("pw_form"):
+        pw = st.text_input("密碼", type="password", label_visibility="collapsed",
+                           placeholder="密碼")
+        ok = st.form_submit_button("進入", type="primary",
+                                   use_container_width=True)
+    if ok:
+        if pw == required:
+            st.session_state.authed = True
+            st.rerun()
+        else:
+            st.error("密碼不對，再試一次。")
+    return False
+
+
 def main() -> None:
     init_state()
     st.markdown(THEME_CSS, unsafe_allow_html=True)
+    if not check_password():
+        return
     st.markdown(BRAND_HTML, unsafe_allow_html=True)
     steps_bar()
     {1: step1, 2: step2, 3: step3, 4: step4, 5: step5}[st.session_state.step]()

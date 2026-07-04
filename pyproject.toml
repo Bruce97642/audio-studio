@@ -13,6 +13,7 @@ authors = [{ name = "Wang Shao-Yu" }]
 dependencies = [
     "numpy",
     "soundfile",
+    "scipy",
     "noisereduce",
     "faster-whisper",
 ]
