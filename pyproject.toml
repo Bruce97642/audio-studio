@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "audio-studio"
+version = "1.0.0"
+description = "把吵雜錄音變成錄音室等級人聲：AI 降噪、人聲增強、指令剪輯、逐字稿"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Wang Shao-Yu" }]
+dependencies = [
+    "numpy",
+    "soundfile",
+    "noisereduce",
+    "faster-whisper",
+]
+
+[project.optional-dependencies]
+separate = ["demucs"]
+
+[project.scripts]
+audio-studio = "audio_studio.cli:main"
+
+[tool.setuptools]
+packages = ["audio_studio"]

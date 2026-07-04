@@ -1,0 +1,2 @@
+# RNNoise 模型雖是文字格式，但絕不能被換行符轉換動到
+models/*.rnnn binary

@@ -1,0 +1,13 @@
+__pycache__/
+*.egg-info/
+build/
+dist/
+
+# 測試產生的音檔（用 tests/run_tests.ps1 重新產生）
+tests/*.wav
+tests/*.mp3
+tests/*.m4a
+tests/*.srt
+tests/*.txt
+tests/*.json
+tests/batch/
