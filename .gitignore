@@ -18,3 +18,6 @@ workspace/
 
 # 本機密鑰（雲端部署的密碼設定在 Streamlit Cloud 的 Secrets 後台，不進版控）
 .streamlit/secrets.toml
+
+# DeepFilterNet 的本機 Python 3.11 環境（用 setup_dfn.ps1 重建）
+.dfn311/

@@ -6,10 +6,16 @@
 
 from __future__ import annotations
 
+import sys
 import tempfile
 from pathlib import Path
 
 import streamlit as st
+
+# Windows 主控台是 cp950，管線的中文進度訊息會印爆——一律轉 UTF-8
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 from audio_studio.commands import HELP_TEXT, parse_command
 from audio_studio.edit import cut, trim_silence
@@ -168,14 +174,28 @@ BRAND_HTML = (
     '</div>')
 
 
+def _cleanup_workspace(days: int = 7) -> None:
+    """刪掉超過 N 天的舊工作區，避免硬碟越積越大。"""
+    import shutil
+    import time
+    cutoff = time.time() - days * 86400
+    try:
+        for d in WORKSPACE.glob("session_*"):
+            if d.is_dir() and d.stat().st_mtime < cutoff:
+                shutil.rmtree(d, ignore_errors=True)
+    except OSError:
+        pass
+
+
 def init_state() -> None:
     defaults = {"step": 1, "workdir": None, "src": None, "orig_name": None,
                 "history": [], "msg": "", "transcript": None,
-                "outfile": None, "diag": None}
+                "outfile": None, "diag": None, "ref": None}
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
     if st.session_state.workdir is None:
         WORKSPACE.mkdir(exist_ok=True)
+        _cleanup_workspace()
         st.session_state.workdir = tempfile.mkdtemp(prefix="session_",
                                                     dir=WORKSPACE)
 
@@ -318,6 +338,16 @@ def step2() -> None:
                         preset=preset, denoise=LEVEL_MAP[level],
                         style=style_key, dehum=dehum, declip=declip,
                         separate=separate)
+            # 原音調到同響度，做公平的 A/B 對比
+            from audio_studio.pipeline import match_loudness
+            try:
+                ref = match_loudness(
+                    st.session_state.src,
+                    Path(st.session_state.workdir) / "原音對照.mp3",
+                    preset=preset)
+                st.session_state.ref = str(ref)
+            except Exception:
+                st.session_state.ref = None
         st.session_state.history = [str(out)]
         st.session_state.msg = "清理完成！先聽聽看，需要剪的地方直接打字跟我說。"
         goto(3)
@@ -413,7 +443,12 @@ def _handle_command(text: str) -> None:
 def step3() -> None:
     st.subheader("聽聽看，要剪哪裡跟我說")
     current = st.session_state.history[-1]
-    st.audio(current)
+    if st.session_state.ref:
+        which = st.radio("A/B 對比（響度已調成一樣，聽的是「乾淨度」的差別）",
+                         ["清理後", "原音對照"], horizontal=True)
+        st.audio(current if which == "清理後" else st.session_state.ref)
+    else:
+        st.audio(current)
     st.caption(f"目前長度：{fmt_time(probe_duration(current))}　"
                f"（已做 {len(st.session_state.history) - 1} 個剪輯動作）")
 

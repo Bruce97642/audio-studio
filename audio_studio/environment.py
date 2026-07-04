@@ -14,8 +14,9 @@ from pathlib import Path
 
 from .ffmpeg_utils import run_ffmpeg
 
-# 訊噪比 → 降噪強度
-SNR_LEVELS = [(12, "max"), (20, "strong"), (32, "standard")]
+# 訊噪比 → 降噪強度。門檻偏嚴：真實錄音的噪音多是「會動的」
+# （人聲、車流），量出來的訊噪比會比聽感樂觀，寧可建議強一級
+SNR_LEVELS = [(14, "max"), (24, "strong"), (36, "standard")]
 HUM_EXCESS_DB = 8.0     # 哼聲頻帶比鄰近頻譜高這麼多才算有哼聲
 CLIP_RATIO = 0.0003     # 貼近滿刻度的取樣超過此比例就建議爆音修復
 

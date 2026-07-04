@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
 from .ffmpeg_utils import (REPO_ROOT, RNNOISE_MODEL, FFmpegError,
                            encode_args, run_ffmpeg)
+
+# DeepFilterNet3 跑在獨立的 Python 3.11 環境（3.12 沒有它的安裝檔）
+DFN_EXE = REPO_ROOT / ".dfn311" / "Scripts" / "deepFilter.exe"
 
 # 響度目標（EBU R128）
 PRESETS = {
@@ -107,18 +112,43 @@ def _denoise_spectral(src: Path, dst: Path, strength: float) -> None:
     sf.write(dst, cleaned, sr)
 
 
+def _denoise_dfn(src: Path, workdir: Path) -> Path:
+    """DeepFilterNet3 深度降噪：對人群交談、車流這類「會動的噪音」
+    遠強於 RNNoise。第一次執行會自動下載模型。"""
+    out_dir = workdir / "dfn"
+    out_dir.mkdir(exist_ok=True)
+    proc = subprocess.run(
+        [str(DFN_EXE), str(src), "--output-dir", str(out_dir)],
+        capture_output=True, text=True, encoding="utf-8", errors="replace")
+    outs = list(out_dir.glob("*.wav"))
+    if proc.returncode != 0 or not outs:
+        raise RuntimeError(
+            f"DeepFilterNet 降噪失敗：\n{proc.stderr[-1200:]}")
+    return outs[0]
+
+
 def _denoise(unified: Path, workdir: Path, level: str) -> Path:
-    """依強度跑一到三層降噪。"""
+    """依強度跑一到三層降噪。
+
+    標準以上優先用 DeepFilterNet3（若已安裝），輕度維持 RNNoise
+    半混音——輕度的定位就是「幾乎不動原音」。
+    """
     if level == "off":
         return unified
-    print(f"  [2/4] AI 降噪中（{DENOISE_LABELS[level]}）...")
+    # 設環境變數 AUDIO_STUDIO_NO_DFN=1 可強制改用 RNNoise（除錯/比較用）
+    use_dfn = (level != "light" and DFN_EXE.exists()
+               and not os.environ.get("AUDIO_STUDIO_NO_DFN"))
+    engine = "DeepFilterNet3" if use_dfn else "RNNoise"
+    print(f"  [2/4] AI 降噪中（{DENOISE_LABELS[level]}，{engine}）...")
 
-    # 第一層：RNNoise 神經網路（輕度時只混一半，保留最多原音細節）
-    mix = 0.55 if level == "light" else 1.0
-    denoised = workdir / "denoised.wav"
-    run_ffmpeg(["-i", str(unified),
-                "-af", f"arnndn=m=models/bd.rnnn:mix={mix}",
-                str(denoised)], cwd=REPO_ROOT)
+    if use_dfn:
+        denoised = _denoise_dfn(unified, workdir)
+    else:
+        mix = 0.55 if level == "light" else 1.0
+        denoised = workdir / "denoised.wav"
+        run_ffmpeg(["-i", str(unified),
+                    "-af", f"arnndn=m=models/bd.rnnn:mix={mix}",
+                    str(denoised)], cwd=REPO_ROOT)
 
     # 第二層：頻譜降噪
     if level in ("strong", "max"):
@@ -206,6 +236,37 @@ def _measure_loudnorm(src: Path, target: dict) -> dict | None:
     if any("-inf" in str(v).lower() for v in stats.values()):
         return None  # 幾乎無聲的檔案，改用單遍模式
     return stats
+
+
+def match_loudness(input_path: str | Path, output: str | Path,
+                   preset: str = "video") -> Path:
+    """把原音調到跟成品同響度（不做任何清理），供公平的 A/B 對比。
+
+    沒有等響度的對比會誤導耳朵——比較大聲的那個聽起來永遠比較好。
+    """
+    src = Path(input_path).resolve()
+    out = Path(output).resolve()
+    target = PRESETS[preset]
+    workdir = Path(tempfile.mkdtemp(prefix="audio_ref_"))
+    try:
+        unified = workdir / "unified.wav"
+        run_ffmpeg(["-i", str(src), "-ac", "1", "-ar", "48000",
+                    "-c:a", "pcm_s16le", str(unified)])
+        stats = _measure_loudnorm(unified, target)
+        if stats:
+            gain = target["I"] - float(stats["input_i"])
+            headroom = target["TP"] - float(stats["input_tp"])
+            gain = min(gain, headroom + 6)
+            limit = 10 ** (target["TP"] / 20)
+            af = (f"volume={gain:.2f}dB,alimiter=limit={limit:.4f}"
+                  f":attack=5:release=80:level=false")
+        else:
+            af = "anull"
+        run_ffmpeg(["-i", str(unified), "-af", af,
+                    *encode_args(out), str(out)])
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+    return out
 
 
 def clean(input_path: str | Path, output: str | Path | None = None,
