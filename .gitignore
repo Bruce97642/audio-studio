@@ -11,3 +11,7 @@ tests/*.srt
 tests/*.txt
 tests/*.json
 tests/batch/
+
+# 網頁精靈的工作區與成品
+workspace/
+成品/

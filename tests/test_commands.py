@@ -1,0 +1,44 @@
+"""白話指令解析器的單元測試：python tests/test_commands.py"""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from audio_studio.commands import parse_command  # noqa: E402
+
+CASES = [
+    ("剪掉 2:10-2:30", ("remove", ["2:10-2:30"])),
+    ("幫我剪掉0:05到0:10", ("remove", ["0:05-0:10"])),
+    ("剪掉 0:00-0:05 和 3:00-3:10", ("remove", ["0:00-0:05", "3:00-3:10"])),
+    ("刪除 130~150", ("remove", ["130-150"])),
+    ("只保留 1:00-2:00", ("keep", ["1:00-2:00"])),
+    ("保留1:00至2:00就好", ("keep", ["1:00-2:00"])),
+    ("刪掉『下星期三』", ("remove_text", "下星期三")),
+    ("刪掉「呃那個」", ("remove_text", "呃那個")),
+    ("刪掉 下星期三", ("remove_text", "下星期三")),
+    ("找『市集活動』", ("find_text", "市集活動")),
+    ("搜尋 有機蔬菜", ("find_text", "有機蔬菜")),
+    ("去空白", ("trim", None)),
+    ("把頭尾的靜音去掉", ("trim", None)),
+    ("縮短停頓", ("gaps", None)),
+    ("還原", ("undo", None)),
+    ("回上一步", ("undo", None)),
+    ("今天天氣如何", ("help", None)),
+    ("", ("help", None)),
+]
+
+failed = 0
+for text, expected in CASES:
+    got = parse_command(text)
+    status = "PASS" if got == expected else "FAIL"
+    if got != expected:
+        failed += 1
+        print(f"  {status}  {text!r} -> {got}，預期 {expected}")
+    else:
+        print(f"  {status}  {text!r} -> {got}")
+
+print()
+if failed:
+    print(f"{failed} 項失敗")
+    sys.exit(1)
+print("全部通過！")

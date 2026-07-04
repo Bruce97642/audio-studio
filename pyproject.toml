@@ -19,6 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 separate = ["demucs"]
+ui = ["streamlit"]
 
 [project.scripts]
 audio-studio = "audio_studio.cli:main"

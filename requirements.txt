@@ -3,3 +3,4 @@ soundfile
 noisereduce
 faster-whisper
 demucs
+streamlit
