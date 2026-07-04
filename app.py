@@ -90,20 +90,45 @@ def step1() -> None:
 
 # ---------- 步驟 2：選項 ----------
 
+LEVEL_MAP = {"關閉": "off", "輕度": "light", "標準": "standard",
+             "加強": "strong", "最強": "max"}
+STYLE_MAP = {"溫暖": "warm", "廣播主持人": "radio",
+             "清亮": "bright", "自然": "natural"}
+PRESET_MAP = {"影片": "video", "Podcast": "podcast", "廣告": "loud"}
+
+
 def step2() -> None:
     st.subheader("要怎麼清理？")
-    use = st.radio("這段聲音的用途",
-                   ["影片（YouTube / FB / IG）", "Podcast / 純聲音"])
-    extra = st.checkbox("噪音很兇 — 加開第二層降噪")
+
+    use = st.radio("響度用途",
+                   ["影片（YouTube / FB / IG）", "Podcast / 純聲音",
+                    "廣告宣傳（最大聲）"])
+    level = st.select_slider(
+        "降噪強度",
+        options=["關閉", "輕度", "標準", "加強", "最強"], value="加強")
+    st.caption("輕度＝環境本來就安靜｜標準＝一般吵｜加強＝很吵（商用建議）｜"
+               "最強＝三層 AI 降噪＋噪音門，講話空檔壓到全黑")
+    style = st.selectbox("音色風格", [
+        "廣播主持人 — 厚實、有磁性，最有專業播音感（商用推薦）",
+        "溫暖 — 講話自然又有質感",
+        "清亮 — 明亮清晰，適合教學說明",
+        "自然 — 幾乎不修飾，只把音量弄平均",
+    ])
+    dehum = st.checkbox("消除電流／冷氣／電風扇的嗡嗡聲（60Hz 哼聲）")
     separate = st.checkbox("背景有音樂 — AI 人聲分離（會比較久）")
+    with st.expander("進階選項"):
+        declip = st.checkbox("爆音修復 — 錄音破音/太爆時試試")
 
     col1, col2 = st.columns(2)
     if col1.button("開始清理 ✨", type="primary", use_container_width=True):
-        preset = "video" if use.startswith("影片") else "podcast"
+        preset = next(v for k, v in PRESET_MAP.items() if use.startswith(k))
+        style_key = STYLE_MAP[style.split(" — ")[0]]
         with st.spinner("AI 清理中，請稍候…（背景有音樂時可能要一兩分鐘）"):
             out = clean(st.session_state.src,
                         output=Path(st.session_state.workdir) / "clean.mp3",
-                        preset=preset, extra=extra, separate=separate)
+                        preset=preset, denoise=LEVEL_MAP[level],
+                        style=style_key, dehum=dehum, declip=declip,
+                        separate=separate)
         st.session_state.history = [str(out)]
         st.session_state.msg = "清理完成！先聽聽看，需要剪的地方直接打字跟我說。"
         goto(3)
@@ -160,6 +185,30 @@ def _handle_command(text: str) -> None:
                 st.session_state.msg = (f"找到 {len(matches)} 處（{where}），"
                                         f"都剪掉了。現在長度 "
                                         f"{fmt_time(probe_duration(out))}。")
+        elif action == "speed":
+            out = _next_path()
+            run_ffmpeg(["-i", str(current), "-af", f"atempo={payload}",
+                        *encode_args(out), str(out)])
+            st.session_state.history.append(str(out))
+            word = "加快" if payload > 1 else "放慢"
+            st.session_state.msg = (f"{word}為 {payload} 倍（音調不變），"
+                                    f"現在長度 {fmt_time(probe_duration(out))}。")
+        elif action == "volume":
+            out = _next_path()
+            run_ffmpeg(["-i", str(current), "-af", f"volume={payload}dB",
+                        *encode_args(out), str(out)])
+            st.session_state.history.append(str(out))
+            word = "大聲" if payload > 0 else "小聲"
+            st.session_state.msg = f"{word}了 {abs(payload):.0f}dB。"
+        elif action == "fade":
+            d = probe_duration(current)
+            out = _next_path()
+            run_ffmpeg(["-i", str(current),
+                        "-af", f"afade=t=in:st=0:d=0.4,"
+                               f"afade=t=out:st={max(d - 0.6, 0):.3f}:d=0.6",
+                        *encode_args(out), str(out)])
+            st.session_state.history.append(str(out))
+            st.session_state.msg = "頭尾加上淡入淡出了。"
         elif action == "undo":
             if len(st.session_state.history) > 1:
                 st.session_state.history.pop()

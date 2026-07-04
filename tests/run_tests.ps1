@@ -70,7 +70,7 @@ $d = Get-Dur "$t\joined.mp3"
 $expect = (Get-Dur "$t\cut_remove.mp3") + (Get-Dur "$t\cut_keep.mp3")
 Check "join 接檔" ([Math]::Abs($d - $expect) -lt 0.5) ("{0:N2}s，預期 {1:N2}s" -f $d, $expect)
 
-audio-studio trim "$t\out_default.mp3" --db -35 -o "$t\trimmed.mp3"
+audio-studio trim "$t\out_extra.mp3" --db -35 -o "$t\trimmed.mp3"
 $d = Get-Dur "$t\trimmed.mp3"
 Check "trim 去空白" ($dur - $d -ge 1.5) ("{0:N2}s -> {1:N2}s" -f $dur, $d)
 

@@ -21,10 +21,24 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("clean", help="一鍵清理：降噪＋人聲增強＋響度標準化")
     p.add_argument("inputs", nargs="+", help="音檔或整個資料夾")
     p.add_argument("-o", "--output", help="輸出檔名（僅限單一輸入）")
-    p.add_argument("--preset", choices=["video", "podcast"], default="video",
-                   help="響度目標：video=-14 LUFS（預設）、podcast=-16 LUFS")
+    p.add_argument("--preset", choices=["video", "podcast", "loud"],
+                   default="video",
+                   help="響度：video=-14（預設）、podcast=-16、loud=-12 LUFS")
+    p.add_argument("--denoise",
+                   choices=["off", "light", "standard", "strong", "max"],
+                   default="standard",
+                   help="降噪強度（預設 standard；max 會連講話空檔都壓黑）")
+    p.add_argument("--style",
+                   choices=["natural", "warm", "radio", "bright"],
+                   default="warm",
+                   help="音色：natural 自然、warm 溫暖（預設）、"
+                        "radio 廣播主持人、bright 清亮")
+    p.add_argument("--dehum", action="store_true",
+                   help="消除 60Hz 電流/冷氣嗡嗡聲（含諧波）")
+    p.add_argument("--declip", action="store_true",
+                   help="爆音修復（錄音破音時試試）")
     p.add_argument("--extra", action="store_true",
-                   help="加開第二層頻譜降噪（噪音很頑固時用）")
+                   help="（舊參數）等同 --denoise strong")
     p.add_argument("--separate", action="store_true",
                    help="先用 Demucs 把人聲從音樂/複雜背景抽出來（較慢）")
 
@@ -72,10 +86,14 @@ def _cmd_clean(args) -> None:
     files = collect_audio_files(args.inputs)
     if args.output and len(files) > 1:
         raise SystemExit("多檔批次模式不能指定 -o，輸出會放在各檔案旁邊")
+    denoise = args.denoise
+    if args.extra and denoise == "standard":
+        denoise = "strong"  # 舊參數相容
     for i, f in enumerate(files, 1):
         print(f"[{i}/{len(files)}] 清理 {f.name}")
         out = clean(f, output=args.output, preset=args.preset,
-                    extra=args.extra, separate=args.separate)
+                    denoise=denoise, style=args.style, dehum=args.dehum,
+                    declip=args.declip, separate=args.separate)
         print(f"  完成 → {out}")
 
 

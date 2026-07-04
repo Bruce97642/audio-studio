@@ -20,6 +20,9 @@ HELP_TEXT = """看不懂這個指令，你可以這樣說：
 - 「找『市集活動』」← 只告訴你時間點，不剪
 - 「去空白」（去掉頭尾的安靜段）
 - 「縮短停頓」（連中間的長停頓一起縮短）
+- 「加快 1.2 倍」「放慢 0.9」（變速不變調）
+- 「大聲一點」「小聲一點」（每次 3dB）
+- 「淡入淡出」（頭尾加上柔順的進出場）
 - 「還原」（回到上一步）"""
 
 
@@ -39,6 +42,26 @@ def parse_command(text: str) -> tuple[str, object]:
         return ("gaps", None)
     if re.search(r"空白|靜音|安靜", text) and not _RANGE.search(text):
         return ("trim", None)
+    if re.search(r"淡入|淡出", text):
+        return ("fade", None)
+
+    m = re.search(r"(加快|加速|快轉|放慢|減速)\s*([\d.]+)?\s*倍?", text)
+    if m:
+        faster = m.group(1) in ("加快", "加速", "快轉")
+        n = float(m.group(2)) if m.group(2) else None
+        if faster:
+            factor = n if n else 1.25
+            if factor < 1:  # 「加快 0.8」照講者直覺理解成倍率
+                factor = 1 / factor
+        else:
+            factor = (1 / n if n and n > 1 else n) if n else 0.85
+        factor = min(max(factor, 0.5), 2.0)
+        return ("speed", round(factor, 3))
+
+    if re.search(r"大聲|音量.*(大|高)", text):
+        return ("volume", 3.0)
+    if re.search(r"小聲|音量.*(小|低)", text):
+        return ("volume", -3.0)
 
     ranges = [f"{a}-{b}" for a, b in _RANGE.findall(text)]
     quoted = _QUOTED.findall(text)
