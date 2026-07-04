@@ -16,6 +16,7 @@ dependencies = [
     "scipy",
     "noisereduce",
     "faster-whisper",
+    "edge-tts",
 ]
 
 [project.optional-dependencies]

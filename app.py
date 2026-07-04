@@ -237,7 +237,8 @@ def step1() -> None:
         st.session_state.orig_name = p.name
 
     if st.session_state.src is None:
-        tab_upload, tab_record = st.tabs(["上傳檔案", "現場錄音"])
+        tab_upload, tab_record, tab_tts = st.tabs(
+            ["上傳檔案", "現場錄音", "文稿配音"])
         with tab_upload:
             up = st.file_uploader(
                 "手機錄音、會議錄音、影片檔都可以（mp3 / m4a / wav / mp4…）",
@@ -261,6 +262,52 @@ def step1() -> None:
                 st.session_state.orig_name = (
                     f"現場錄音_{datetime.now():%m%d_%H%M}.wav")
                 st.rerun()
+        with tab_tts:
+            from audio_studio.tts import VOICE_PRESETS
+            st.caption("貼上文稿，AI 直接幫你配音（需要網路）。"
+                       "生成後可以直接剪輯、轉檔。")
+            with st.form("tts_form"):
+                script = st.text_area(
+                    "文稿", height=160,
+                    placeholder="例：花蓮光復鄉的有機蔬菜，來自太巴塱的黑土地。"
+                                "這個星期六，社區市集見。")
+                voice = st.selectbox(
+                    "配音風格",
+                    [f"{name} — {p['desc']}"
+                     for name, p in VOICE_PRESETS.items()])
+                use = st.radio("響度用途",
+                               ["影片（YouTube / FB / IG）",
+                                "Podcast / 純聲音",
+                                "廣告宣傳（最大聲）"], horizontal=True,
+                               key="tts_use")
+                submitted = st.form_submit_button(
+                    "生成配音 🎙", type="primary", use_container_width=True)
+            if submitted:
+                if not script.strip():
+                    st.error("文稿還是空的，先貼上要配音的文字。")
+                else:
+                    from audio_studio.tts import synthesize
+                    voice_key = voice.split(" — ")[0]
+                    preset = next(v for k, v in PRESET_MAP.items()
+                                  if use.startswith(k))
+                    try:
+                        with st.spinner(f"AI 配音中（{voice_key}）…"):
+                            out = synthesize(
+                                script, preset_name=voice_key,
+                                output=Path(st.session_state.workdir)
+                                / "配音.mp3",
+                                loudness=preset)
+                    except RuntimeError as exc:
+                        st.error(str(exc))
+                    else:
+                        st.session_state.src = str(out)
+                        st.session_state.orig_name = f"配音_{voice_key}.mp3"
+                        st.session_state.history = [str(out)]
+                        st.session_state.msg = (
+                            "配音生成完成！聽聽看，想改哪句直接打字跟我說；"
+                            "想換風格就回上一步重新生成。")
+                        st.session_state.step = 3
+                        st.rerun()
     else:
         st.audio(st.session_state.src)
         st.caption(f"檔案：{st.session_state.orig_name}　"

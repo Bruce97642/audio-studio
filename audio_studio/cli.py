@@ -82,6 +82,18 @@ def build_parser() -> argparse.ArgumentParser:
                        help="AI 環境診斷：分析噪音/哼聲/爆音，推薦降噪設定")
     p.add_argument("input", help="音檔")
 
+    p = sub.add_parser("speak", help="文稿配音：文字直接合成廣告級配音")
+    p.add_argument("text", help="文稿內容，或 .txt 檔路徑")
+    p.add_argument("--voice", default="磁性男聲",
+                   help="配音風格（用 voices 指令看全部選項）")
+    p.add_argument("-o", "--output", default="配音.mp3", help="輸出檔名")
+    p.add_argument("--preset", choices=["video", "podcast", "loud"],
+                   default="video", help="響度目標")
+    p.add_argument("--raw", action="store_true",
+                   help="只要原始合成聲音，不做廣播級後製")
+
+    sub.add_parser("voices", help="列出所有配音風格")
+
     return parser
 
 
@@ -162,10 +174,29 @@ def _cmd_diagnose(args) -> None:
     print(f"  建議指令：{cmd}")
 
 
+def _cmd_speak(args) -> None:
+    from .tts import synthesize
+    text = args.text
+    maybe_file = Path(text)
+    if maybe_file.suffix.lower() == ".txt" and maybe_file.is_file():
+        text = maybe_file.read_text(encoding="utf-8")
+    out = synthesize(text, preset_name=args.voice, output=args.output,
+                     loudness=args.preset, enhance=not args.raw)
+    print(f"  完成 → {out}")
+
+
+def _cmd_voices(args) -> None:
+    from .tts import VOICE_PRESETS
+    width = max(len(k) for k in VOICE_PRESETS)
+    for name, preset in VOICE_PRESETS.items():
+        print(f"  {name:<{width}}  {preset['desc']}")
+
+
 COMMANDS = {
     "clean": _cmd_clean, "cut": _cmd_cut, "join": _cmd_join,
     "trim": _cmd_trim, "transcribe": _cmd_transcribe,
     "find": _cmd_find, "analyze": _cmd_analyze, "diagnose": _cmd_diagnose,
+    "speak": _cmd_speak, "voices": _cmd_voices,
 }
 
 
