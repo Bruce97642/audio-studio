@@ -78,6 +78,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("analyze", help="音檔健檢：響度/峰值/噪音底層")
     p.add_argument("input", help="音檔")
 
+    p = sub.add_parser("diagnose",
+                       help="AI 環境診斷：分析噪音/哼聲/爆音，推薦降噪設定")
+    p.add_argument("input", help="音檔")
+
     return parser
 
 
@@ -145,10 +149,23 @@ def _cmd_analyze(args) -> None:
     analyze(args.input)
 
 
+def _cmd_diagnose(args) -> None:
+    from .environment import diagnose
+    result = diagnose(args.input)
+    for note in result["notes"]:
+        print(f"  {note}")
+    cmd = f"audio-studio clean \"{args.input}\" --denoise {result['denoise']}"
+    if result["dehum"]:
+        cmd += " --dehum"
+    if result["declip"]:
+        cmd += " --declip"
+    print(f"  建議指令：{cmd}")
+
+
 COMMANDS = {
     "clean": _cmd_clean, "cut": _cmd_cut, "join": _cmd_join,
     "trim": _cmd_trim, "transcribe": _cmd_transcribe,
-    "find": _cmd_find, "analyze": _cmd_analyze,
+    "find": _cmd_find, "analyze": _cmd_analyze, "diagnose": _cmd_diagnose,
 }
 
 

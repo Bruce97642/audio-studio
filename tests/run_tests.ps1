@@ -56,6 +56,24 @@ ffmpeg -hide_banner -v error -y -i "$t\speech_noisy.wav" -c:a aac -b:a 128k "$t\
 audio-studio clean "$t\speech_noisy.m4a" -o "$t\out_m4a.mp3"
 Check "m4a 輸入" (Test-Path "$t\out_m4a.mp3") "手機錄音格式"
 
+Write-Host "=== 2b. AI 環境診斷 ==="
+$d1 = audio-studio diagnose "$t\speech_noisy.wav" | Out-String
+Check "診斷-吵雜環境" ($d1 -match '加強|最強') "依訊噪比推薦降噪強度"
+
+# 冷氣房情境：60Hz+120Hz 哼聲為主的噪音
+ffmpeg -hide_banner -v error -y -i "$t\speech_clean.wav" `
+    -f lavfi -t 30 -i "anoisesrc=color=pink:amplitude=0.05:sample_rate=48000:seed=7" `
+    -f lavfi -t 30 -i "sine=frequency=60:sample_rate=48000" `
+    -f lavfi -t 30 -i "sine=frequency=120:sample_rate=48000" `
+    -filter_complex "[2:a]volume=0.5[h1];[3:a]volume=0.25[h2];[1:a][h1][h2]amix=inputs=3:normalize=0[nz];[0:a]aresample=48000,aformat=channel_layouts=mono,adelay=2000,apad=pad_dur=1.5[sp];[sp][nz]amix=inputs=2:duration=first:normalize=0[out]" `
+    -map "[out]" -c:a pcm_s16le "$t\speech_hum.wav"
+$d2 = audio-studio diagnose "$t\speech_hum.wav" | Out-String
+Check "診斷-電流哼聲" ($d2 -match '已自動勾選消除') "偵測 60Hz 哼聲"
+
+ffmpeg -hide_banner -v error -y -i "$t\speech_clean.wav" -af "volume=14dB" -c:a pcm_s16le "$t\speech_clipped.wav"
+$d3 = audio-studio diagnose "$t\speech_clipped.wav" | Out-String
+Check "診斷-爆音" ($d3 -match '爆音') "偵測破音取樣"
+
 Write-Host "=== 3. 剪輯功能 ==="
 audio-studio cut "$t\out_default.mp3" -r 0:05-0:10 -o "$t\cut_remove.mp3"
 $d = Get-Dur "$t\cut_remove.mp3"

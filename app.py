@@ -170,7 +170,8 @@ BRAND_HTML = (
 
 def init_state() -> None:
     defaults = {"step": 1, "workdir": None, "src": None, "orig_name": None,
-                "history": [], "msg": "", "transcript": None, "outfile": None}
+                "history": [], "msg": "", "transcript": None,
+                "outfile": None, "diag": None}
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
     if st.session_state.workdir is None:
@@ -216,24 +217,52 @@ def step1() -> None:
         st.session_state.orig_name = p.name
 
     if st.session_state.src is None:
-        up = st.file_uploader(
-            "手機錄音、會議錄音、影片檔都可以（mp3 / m4a / wav / mp4…）",
-            type=[e.lstrip(".") for e in sorted(AUDIO_EXTS)])
-        if up is not None:
-            dst = Path(st.session_state.workdir) / f"原始{Path(up.name).suffix}"
-            dst.write_bytes(up.getbuffer())
-            st.session_state.src = str(dst)
-            st.session_state.orig_name = up.name
-            st.rerun()
+        tab_upload, tab_record = st.tabs(["上傳檔案", "現場錄音"])
+        with tab_upload:
+            up = st.file_uploader(
+                "手機錄音、會議錄音、影片檔都可以（mp3 / m4a / wav / mp4…）",
+                type=[e.lstrip(".") for e in sorted(AUDIO_EXTS)])
+            if up is not None:
+                dst = (Path(st.session_state.workdir)
+                       / f"原始{Path(up.name).suffix}")
+                dst.write_bytes(up.getbuffer())
+                st.session_state.src = str(dst)
+                st.session_state.orig_name = up.name
+                st.rerun()
+        with tab_record:
+            st.caption("按下麥克風按鈕開始錄，講完再按一次結束。"
+                       "錄好會立刻做 AI 環境診斷，自動選好降噪方式。")
+            rec = st.audio_input("現場錄音")
+            if rec is not None:
+                dst = Path(st.session_state.workdir) / "原始.wav"
+                dst.write_bytes(rec.getbuffer())
+                from datetime import datetime
+                st.session_state.src = str(dst)
+                st.session_state.orig_name = (
+                    f"現場錄音_{datetime.now():%m%d_%H%M}.wav")
+                st.rerun()
     else:
         st.audio(st.session_state.src)
         st.caption(f"檔案：{st.session_state.orig_name}　"
                    f"長度：{fmt_time(probe_duration(st.session_state.src))}")
+
+        if st.session_state.diag is None:
+            from audio_studio.environment import diagnose
+            try:
+                with st.spinner("AI 環境診斷中…"):
+                    st.session_state.diag = diagnose(st.session_state.src)
+            except Exception:
+                st.session_state.diag = {}
+        diag = st.session_state.diag
+        if diag and diag.get("notes"):
+            st.info("**AI 環境診斷**  \n" + "  \n".join(diag["notes"]))
+
         col1, col2 = st.columns(2)
         if col1.button("下一步 →", type="primary", use_container_width=True):
             goto(2)
         if col2.button("換一個檔案", use_container_width=True):
             st.session_state.src = None
+            st.session_state.diag = None
             st.rerun()
 
 
@@ -246,15 +275,24 @@ STYLE_MAP = {"溫暖": "warm", "廣播主持人": "radio",
 PRESET_MAP = {"影片": "video", "Podcast": "podcast", "廣告": "loud"}
 
 
+LEVEL_NAMES = {"off": "關閉", "light": "輕度", "standard": "標準",
+               "strong": "加強", "max": "最強"}
+
+
 def step2() -> None:
     st.subheader("要怎麼清理？")
+
+    diag = st.session_state.diag or {}
+    if diag.get("notes"):
+        st.caption("已依 AI 環境診斷自動選好建議值，都可以自己再調整。")
 
     use = st.radio("響度用途",
                    ["影片（YouTube / FB / IG）", "Podcast / 純聲音",
                     "廣告宣傳（最大聲）"])
     level = st.select_slider(
         "降噪強度",
-        options=["關閉", "輕度", "標準", "加強", "最強"], value="加強")
+        options=["關閉", "輕度", "標準", "加強", "最強"],
+        value=LEVEL_NAMES.get(diag.get("denoise"), "加強"))
     st.caption("輕度＝環境本來就安靜｜標準＝一般吵｜加強＝很吵（商用建議）｜"
                "最強＝三層 AI 降噪＋噪音門，講話空檔壓到全黑")
     style = st.selectbox("音色風格", [
@@ -263,10 +301,12 @@ def step2() -> None:
         "清亮 — 明亮清晰，適合教學說明",
         "自然 — 幾乎不修飾，只把音量弄平均",
     ])
-    dehum = st.checkbox("消除電流／冷氣／電風扇的嗡嗡聲（60Hz 哼聲）")
+    dehum = st.checkbox("消除電流／冷氣／電風扇的嗡嗡聲（60Hz 哼聲）",
+                        value=bool(diag.get("dehum")))
     separate = st.checkbox("背景有音樂 — AI 人聲分離（會比較久）")
-    with st.expander("進階選項"):
-        declip = st.checkbox("爆音修復 — 錄音破音/太爆時試試")
+    with st.expander("進階選項", expanded=bool(diag.get("declip"))):
+        declip = st.checkbox("爆音修復 — 錄音破音/太爆時試試",
+                             value=bool(diag.get("declip")))
 
     col1, col2 = st.columns(2)
     if col1.button("開始清理 ✨", type="primary", use_container_width=True):
