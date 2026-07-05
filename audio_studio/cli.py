@@ -176,12 +176,16 @@ def _cmd_diagnose(args) -> None:
 
 def _cmd_speak(args) -> None:
     from .clone import CLONE_VOICES, synthesize_clone
+    from .eleven import ELEVEN_VOICES, synthesize_eleven
     from .tts import synthesize
     text = args.text
     maybe_file = Path(text)
     if maybe_file.suffix.lower() == ".txt" and maybe_file.is_file():
         text = maybe_file.read_text(encoding="utf-8")
-    if args.voice in CLONE_VOICES:  # 克隆聲線走 F5-TTS
+    if args.voice in ELEVEN_VOICES:  # ElevenLabs 頂級配音
+        out = synthesize_eleven(text, voice=args.voice, output=args.output,
+                                loudness=args.preset, polish=not args.raw)
+    elif args.voice in CLONE_VOICES:  # 克隆聲線走 F5-TTS
         out = synthesize_clone(text, voice=args.voice, output=args.output,
                                loudness=args.preset, enhance=not args.raw)
     else:
@@ -191,15 +195,24 @@ def _cmd_speak(args) -> None:
 
 
 def _cmd_voices(args) -> None:
-    from .clone import CLONE_VOICES, available
+    from .clone import CLONE_VOICES
+    from .clone import available as clone_ok
+    from .eleven import ELEVEN_VOICES
+    from .eleven import available as eleven_ok
     from .tts import VOICE_PRESETS
-    all_voices = {**VOICE_PRESETS, **CLONE_VOICES}
-    width = max(len(k) for k in all_voices)
+    width = max(len(k) for k in
+                {**VOICE_PRESETS, **CLONE_VOICES, **ELEVEN_VOICES})
+    etag = "" if eleven_ok() else "（需先設定 ElevenLabs API key）"
+    print("── ElevenLabs 頂級配音（最自然，推薦）──")
+    for name, preset in ELEVEN_VOICES.items():
+        print(f"  {name:<{width}}  {preset['desc']}{etag}")
+    print("── 克隆聲線（離線）──")
+    ctag = "" if clone_ok() else "（需先執行 setup_clone.ps1）"
+    for name, preset in CLONE_VOICES.items():
+        print(f"  {name:<{width}}  {preset['desc']}{ctag}")
+    print("── 內建 TTS（免申請，需網路）──")
     for name, preset in VOICE_PRESETS.items():
         print(f"  {name:<{width}}  {preset['desc']}")
-    tag = "" if available() else "（需先執行 setup_clone.ps1）"
-    for name, preset in CLONE_VOICES.items():
-        print(f"  {name:<{width}}  {preset['desc']}{tag}")
 
 
 COMMANDS = {

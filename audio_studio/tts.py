@@ -17,49 +17,41 @@ from pathlib import Path
 # 每種風格 = 基底聲音 + 語速/音調 + 後製音色鏈
 # rate/pitch 是相對調整；style 對應 pipeline.STYLES
 VOICE_PRESETS: dict[str, dict] = {
-    "磁性男聲": {
-        "voice": "zh-TW-YunJheNeural", "rate": "-8%", "pitch": "-12Hz",
-        "style": "radio",
-        "desc": "品牌廣告／電影預告——低沉厚實、有磁性（商用推薦）",
-    },
+    # 溫和的 rate/pitch（極端調整會讓 edge-tts 破音失真）；
+    # style 用溫和母帶（clean/warm/clear），不再套會失真的重後製鏈
     "沉穩男聲": {
-        "voice": "zh-TW-YunJheNeural", "rate": "-16%", "pitch": "-6Hz",
+        "voice": "zh-TW-YunJheNeural", "rate": "-8%", "pitch": "-3Hz",
         "style": "warm",
         "desc": "企業簡介／紀錄片——慢而穩，信賴感",
     },
     "活力男聲": {
-        "voice": "zh-TW-YunJheNeural", "rate": "+14%", "pitch": "+6Hz",
-        "style": "bright",
+        "voice": "zh-TW-YunJheNeural", "rate": "+8%", "pitch": "+2Hz",
+        "style": "clear",
         "desc": "促銷檔期／活動宣傳——節奏快、有精神",
     },
-    "知性女聲": {
+    "端正女聲": {
         "voice": "zh-TW-HsiaoChenNeural", "rate": "+0%", "pitch": "+0Hz",
-        "style": "natural",
+        "style": "clean",
         "desc": "新聞資訊／導覽解說——清楚端正",
     },
     "溫暖女聲": {
-        "voice": "zh-TW-HsiaoYuNeural", "rate": "-10%", "pitch": "-4Hz",
+        "voice": "zh-TW-HsiaoYuNeural", "rate": "-5%", "pitch": "-2Hz",
         "style": "warm",
         "desc": "品牌故事／療癒內容——柔和貼近",
     },
     "甜美女聲": {
-        "voice": "zh-TW-HsiaoYuNeural", "rate": "+12%", "pitch": "+10Hz",
-        "style": "bright",
+        "voice": "zh-TW-HsiaoYuNeural", "rate": "+6%", "pitch": "+4Hz",
+        "style": "clear",
         "desc": "電商／青春活潑內容",
-    },
-    "戲劇男聲": {
-        "voice": "zh-CN-YunjianNeural", "rate": "-5%", "pitch": "-10Hz",
-        "style": "radio",
-        "desc": "熱血預告／運動感（大陸腔）",
     },
     "播報男聲": {
         "voice": "zh-CN-YunyangNeural", "rate": "+0%", "pitch": "+0Hz",
-        "style": "natural",
+        "style": "clean",
         "desc": "正式新聞播報腔（大陸腔）",
     },
 }
 
-DEFAULT_PRESET = "磁性男聲"
+DEFAULT_PRESET = "沉穩男聲"
 
 
 def resolve_preset(name: str) -> str:
@@ -117,10 +109,9 @@ def synthesize(text: str, preset_name: str = DEFAULT_PRESET,
                                "請檢查網路連線後再試一次")
 
         if enhance:
-            print(f"  [2/2] 廣播級後製（{preset['style']} 音色鏈）...")
-            from .pipeline import clean
-            clean(raw, output=out, preset=loudness,
-                  denoise="off", style=preset["style"])
+            print("  [2/2] 溫和母帶（響度標準化 + 極輕 EQ）...")
+            from .pipeline import polish_voice
+            polish_voice(raw, out, preset=loudness, style=preset["style"])
         else:
             from .ffmpeg_utils import encode_args, run_ffmpeg
             run_ffmpeg(["-i", str(raw), *encode_args(out), str(out)])

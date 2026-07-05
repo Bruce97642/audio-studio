@@ -265,11 +265,32 @@ def step1() -> None:
         with tab_tts:
             from audio_studio.clone import CLONE_VOICES
             from audio_studio.clone import available as clone_available
+            from audio_studio.eleven import ELEVEN_VOICES
+            from audio_studio.eleven import available as eleven_available
+            from audio_studio.eleven import save_api_key
             from audio_studio.tts import VOICE_PRESETS
-            st.caption("貼上文稿，AI 直接幫你配音（需要網路）。"
-                       "生成後可以直接剪輯、轉檔。")
-            # 克隆聲線（最自然）排在最前面；沒安裝就不顯示
+            st.caption("貼上文稿，AI 直接幫你配音。生成後可以直接剪輯、轉檔。")
+
+            # ElevenLabs 金鑰設定（沒設定就顯示輸入欄）
+            if not eleven_available():
+                with st.expander("🌟 想要最自然的配音？設定 ElevenLabs（免費）",
+                                 expanded=False):
+                    st.caption("到 elevenlabs.io 免費註冊，"
+                               "在頭像→Profile 複製 API key 貼進來（個人自用免費）。")
+                    kcol1, kcol2 = st.columns([3, 1])
+                    api_in = kcol1.text_input(
+                        "ElevenLabs API key", type="password",
+                        label_visibility="collapsed", placeholder="貼上 API key")
+                    if kcol2.button("儲存", use_container_width=True):
+                        if api_in.strip():
+                            save_api_key(api_in)
+                            st.rerun()
+
+            # 三個等級：ElevenLabs（最好）→ 克隆（離線）→ 內建 TTS
             options: list[str] = []
+            if eleven_available():
+                options += [f"{name} — {p['desc']}"
+                            for name, p in ELEVEN_VOICES.items()]
             if clone_available():
                 options += [f"{name} — {p['desc']}"
                             for name, p in CLONE_VOICES.items()]
@@ -295,24 +316,31 @@ def step1() -> None:
                     voice_key = voice.split(" — ")[0]
                     preset = next(v for k, v in PRESET_MAP.items()
                                   if use.startswith(k))
+                    is_eleven = voice_key in ELEVEN_VOICES
                     is_clone = voice_key in CLONE_VOICES
                     note = ("（克隆語音在 CPU 上要 1～3 分鐘，請耐心等）"
                             if is_clone else "")
                     try:
                         with st.spinner(f"AI 配音中（{voice_key}）…{note}"):
-                            if is_clone:
+                            out_path = (Path(st.session_state.workdir)
+                                        / "配音.mp3")
+                            if is_eleven:
+                                from audio_studio.eleven import (
+                                    synthesize_eleven)
+                                out = synthesize_eleven(
+                                    script, voice=voice_key,
+                                    output=out_path, loudness=preset)
+                            elif is_clone:
                                 from audio_studio.clone import (
                                     synthesize_clone)
                                 out = synthesize_clone(
                                     script, voice=voice_key,
-                                    output=Path(st.session_state.workdir)
-                                    / "配音.mp3", loudness=preset)
+                                    output=out_path, loudness=preset)
                             else:
                                 from audio_studio.tts import synthesize
                                 out = synthesize(
                                     script, preset_name=voice_key,
-                                    output=Path(st.session_state.workdir)
-                                    / "配音.mp3", loudness=preset)
+                                    output=out_path, loudness=preset)
                     except (RuntimeError, ValueError) as exc:
                         st.error(str(exc))
                     else:

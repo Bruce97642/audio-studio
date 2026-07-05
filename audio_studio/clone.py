@@ -26,15 +26,15 @@ VOICES_DIR = REPO_ROOT / "voices"
 # 自然的語調靠它、低沉磁性靠 pitch（降調倍率）+ 後製音色鏈。
 # pitch < 1 = 降調變低沉；1 = 不變。
 CLONE_VOICES: dict[str, dict] = {
-    "磁性播音": {
+    "自然旁白": {
         "ref_audio": "ref_natural_male.wav",
         "ref_text": "对，这就是我，万人敬仰的太乙真人。",
-        "pitch": 0.66, "style": "radio",
-        "desc": "低沉厚實的播音腔（克隆聲線，最自然）",
+        "pitch": 1.0, "style": "warm",
+        "desc": "自然男聲旁白（克隆聲線，離線）",
     },
 }
 
-DEFAULT_CLONE = "磁性播音"
+DEFAULT_CLONE = "自然旁白"
 
 
 def available() -> bool:
@@ -80,23 +80,25 @@ def synthesize_clone(text: str, voice: str = DEFAULT_CLONE,
     workdir = Path(tempfile.mkdtemp(prefix="audio_clone_"))
     try:
         raw = workdir / "clone.wav"
-        print(f"  [1/3] 克隆配音中（{voice}，F5-TTS，CPU 約需 1～3 分）...")
+        print(f"  [1/2] 克隆配音中（{voice}，F5-TTS，CPU 約需 1～3 分）...")
         _run_f5(ref_audio, preset["ref_text"], text, raw)
 
-        # 降到目標音域（保留自然語調，只把整體變低沉磁性）
-        print(f"  [2/3] 調整到磁性音域（pitch {preset['pitch']}）...")
-        deep = workdir / "deep.wav"
-        run_ffmpeg(["-i", str(raw),
-                    "-af", f"rubberband=pitch={preset['pitch']}",
-                    str(deep)])
+        # 只在 pitch != 1 時才降調（降調用 rubberband 會有輕微失真，
+        # 預設 1.0 = 不動，保留 F5 最乾淨的自然輸出）
+        stage = raw
+        if abs(preset.get("pitch", 1.0) - 1.0) > 0.01:
+            print(f"  [調整音域] pitch {preset['pitch']}...")
+            stage = workdir / "pitched.wav"
+            run_ffmpeg(["-i", str(raw),
+                        "-af", f"rubberband=pitch={preset['pitch']}",
+                        str(stage)])
 
         if enhance:
-            print(f"  [3/3] 廣播級後製（{preset['style']} 音色鏈）...")
-            from .pipeline import clean
-            clean(deep, output=out, preset=loudness,
-                  denoise="off", style=preset["style"])
+            print("  [2/2] 溫和母帶（響度標準化 + 極輕 EQ）...")
+            from .pipeline import polish_voice
+            polish_voice(stage, out, preset=loudness, style=preset["style"])
         else:
-            run_ffmpeg(["-i", str(deep), *encode_args(out), str(out)])
+            run_ffmpeg(["-i", str(stage), *encode_args(out), str(out)])
     finally:
         import shutil
         shutil.rmtree(workdir, ignore_errors=True)

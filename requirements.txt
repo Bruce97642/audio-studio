@@ -7,3 +7,4 @@ faster-whisper
 demucs
 streamlit
 edge-tts
+elevenlabs

@@ -272,6 +272,48 @@ def match_loudness(input_path: str | Path, output: str | Path,
     return out
 
 
+POLISH_STYLES = {
+    # 已經很乾淨的 AI 配音，只需要極輕的修飾 + 響度標準化。
+    # 重點是「不破壞」：不加飽和、不降調、不重壓縮（那些會產生金屬感）
+    "clean": "highpass=f=60",                         # 幾乎原汁原味
+    "warm": "highpass=f=60,equalizer=f=180:t=q:w=1.4:g=1.2,"
+            "equalizer=f=9000:t=q:w=1.8:g=0.8",       # 一點點暖度+空氣感
+    "clear": "highpass=f=70,equalizer=f=3000:t=q:w=1.4:g=1.5",  # 一點清晰度
+}
+
+
+def polish_voice(input_path: str | Path, output: str | Path,
+                 preset: str = "video", style: str = "warm") -> Path:
+    """給「已經乾淨的 AI 配音」用的溫和母帶：只做響度標準化 +
+    極輕的 EQ，絕不加飽和/降調/重壓縮（那些是把配音弄難聽的元兇）。"""
+    src = Path(input_path).resolve()
+    out = Path(output).resolve()
+    target = PRESETS[preset]
+    eq = POLISH_STYLES.get(style, POLISH_STYLES["warm"])
+
+    workdir = Path(tempfile.mkdtemp(prefix="audio_polish_"))
+    try:
+        shaped = workdir / "shaped.wav"
+        run_ffmpeg(["-i", str(src), "-af", eq, "-ar", "48000",
+                    "-c:a", "pcm_s16le", str(shaped)])
+        stats = _measure_loudnorm(shaped, target)
+        if stats:
+            gain = target["I"] - float(stats["input_i"])
+            headroom = target["TP"] - float(stats["input_tp"])
+            gain = min(gain, headroom + 4)
+            limit = 10 ** (target["TP"] / 20)
+            af = (f"volume={gain:.2f}dB,alimiter=limit={limit:.4f}"
+                  f":attack=5:release=80:level=false")
+        else:
+            af = "anull"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        run_ffmpeg(["-i", str(shaped), "-af", af, "-ar", "48000",
+                    *encode_args(out), str(out)])
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+    return out
+
+
 def clean(input_path: str | Path, output: str | Path | None = None,
           preset: str = "video", denoise: str = "standard",
           style: str = "warm", dehum: bool = False, declip: bool = False,
