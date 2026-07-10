@@ -1,4 +1,9 @@
-"""白話指令解析器的單元測試：python tests/test_commands.py"""
+"""白話指令解析器的單元測試。
+
+跑法（擇一）：
+  python tests/test_commands.py   ← 不用裝任何東西
+  pytest tests/                   ← 有裝 pytest 的話
+"""
 
 import sys
 from pathlib import Path
@@ -38,18 +43,27 @@ CASES = [
     ("", ("help", None)),
 ]
 
-failed = 0
-for text, expected in CASES:
-    got = parse_command(text)
-    status = "PASS" if got == expected else "FAIL"
-    if got != expected:
-        failed += 1
-        print(f"  {status}  {text!r} -> {got}，預期 {expected}")
-    else:
-        print(f"  {status}  {text!r} -> {got}")
 
-print()
-if failed:
-    print(f"{failed} 項失敗")
-    sys.exit(1)
-print("全部通過！")
+def test_parse_command():
+    """pytest 進入點：所有白話指令案例。"""
+    for text, expected in CASES:
+        got = parse_command(text)
+        assert got == expected, f"{text!r} -> {got}，預期 {expected}"
+
+
+if __name__ == "__main__":
+    failed = 0
+    for text, expected in CASES:
+        got = parse_command(text)
+        status = "PASS" if got == expected else "FAIL"
+        if got != expected:
+            failed += 1
+            print(f"  {status}  {text!r} -> {got}，預期 {expected}")
+        else:
+            print(f"  {status}  {text!r} -> {got}")
+
+    print()
+    if failed:
+        print(f"{failed} 項失敗")
+        sys.exit(1)
+    print("全部通過！")

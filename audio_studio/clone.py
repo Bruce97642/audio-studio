@@ -19,7 +19,10 @@ from pathlib import Path
 
 from .ffmpeg_utils import REPO_ROOT, encode_args, run_ffmpeg
 
-CLONE_PY = REPO_ROOT / ".clone311" / "Scripts" / "python.exe"
+# Windows 的 venv 執行檔在 Scripts\，Linux/macOS 在 bin/
+CLONE_PY = (REPO_ROOT / ".clone311" / "Scripts" / "python.exe"
+            if os.name == "nt"
+            else REPO_ROOT / ".clone311" / "bin" / "python")
 VOICES_DIR = REPO_ROOT / "voices"
 
 # 可克隆聲線。參考音是「有授權的自然真人語音」降調到目標音域做的，

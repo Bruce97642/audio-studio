@@ -10,16 +10,25 @@ from .ffmpeg_utils import (FFmpegError, encode_args, fmt_time,
 MIN_SEGMENT = 0.05  # 小於這個長度的碎片直接丟棄（秒）
 
 
-def _keep_segments(duration: float, remove: list[tuple[float, float]]
-                   ) -> list[tuple[float, float]]:
-    """由「要剪掉的範圍」推出「要保留的範圍」。"""
+def _merge_ranges(duration: float, ranges: list[tuple[float, float]]
+                  ) -> list[tuple[float, float]]:
+    """把範圍夾進 [0, duration] 並合併重疊／相鄰的部分。"""
     merged: list[list[float]] = []
-    for start, end in sorted(remove):
+    for start, end in sorted(ranges):
         start, end = max(0.0, start), min(end, duration)
+        if end - start <= 0:
+            continue
         if merged and start <= merged[-1][1]:
             merged[-1][1] = max(merged[-1][1], end)
         else:
             merged.append([start, end])
+    return [(a, b) for a, b in merged]
+
+
+def _keep_segments(duration: float, remove: list[tuple[float, float]]
+                   ) -> list[tuple[float, float]]:
+    """由「要剪掉的範圍」推出「要保留的範圍」。"""
+    merged = _merge_ranges(duration, remove)
     keep, cursor = [], 0.0
     for start, end in merged:
         if start - cursor > MIN_SEGMENT:
@@ -51,8 +60,9 @@ def cut(input_path: str | Path, ranges: list[str], mode: str = "remove",
     parsed = [parse_range(r) for r in ranges]
 
     if mode == "keep":
-        segments = [(max(0.0, a), min(b, duration)) for a, b in sorted(parsed)]
-        segments = [(a, b) for a, b in segments if b - a > MIN_SEGMENT]
+        # 合併重疊的保留範圍，避免同一段聲音被輸出兩次
+        segments = [(a, b) for a, b in _merge_ranges(duration, parsed)
+                    if b - a > MIN_SEGMENT]
     else:
         segments = _keep_segments(duration, parsed)
     if not segments:

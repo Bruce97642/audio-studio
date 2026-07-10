@@ -12,8 +12,11 @@ from pathlib import Path
 from .ffmpeg_utils import (REPO_ROOT, RNNOISE_MODEL, FFmpegError,
                            encode_args, run_ffmpeg)
 
-# DeepFilterNet3 跑在獨立的 Python 3.11 環境（3.12 沒有它的安裝檔）
-DFN_EXE = REPO_ROOT / ".dfn311" / "Scripts" / "deepFilter.exe"
+# DeepFilterNet3 跑在獨立的 Python 3.11 環境（3.12 沒有它的安裝檔）。
+# Windows 的 venv 執行檔在 Scripts\，Linux/macOS 在 bin/
+DFN_EXE = (REPO_ROOT / ".dfn311" / "Scripts" / "deepFilter.exe"
+           if os.name == "nt"
+           else REPO_ROOT / ".dfn311" / "bin" / "deepFilter")
 
 # 響度目標（EBU R128）
 PRESETS = {

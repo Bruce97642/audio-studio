@@ -230,5 +230,6 @@ def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     try:
         COMMANDS[args.command](args)
-    except (FileNotFoundError, ValueError) as exc:
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        # RuntimeError 涵蓋 FFmpegError、TTS/克隆的白話錯誤訊息
         raise SystemExit(f"錯誤：{exc}")

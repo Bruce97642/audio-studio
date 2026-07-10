@@ -67,9 +67,12 @@ def parse_range(spec: str) -> tuple[float, float]:
 
 
 def fmt_time(seconds: float) -> str:
-    """秒數轉 '分:秒.毫秒' 顯示。"""
+    """秒數轉 '分:秒.毫秒' 顯示（超過一小時顯示 時:分:秒）。"""
     m, s = divmod(max(seconds, 0.0), 60)
-    return f"{int(m)}:{s:05.2f}"
+    h, m = divmod(int(m), 60)
+    if h:
+        return f"{h}:{m:02d}:{s:05.2f}"
+    return f"{m}:{s:05.2f}"
 
 
 def encode_args(output: Path) -> list[str]:
@@ -82,6 +85,14 @@ def encode_args(output: Path) -> list[str]:
     if ext in (".m4a", ".aac", ".mp4"):
         return ["-c:a", "aac", "-b:a", "192k"]
     return ["-c:a", "libmp3lame", "-b:a", "192k"]  # 預設 mp3
+
+
+def safe_filename(name: str, fallback: str) -> str:
+    """把使用者輸入的檔名消毒：去掉路徑分隔與非法字元，
+    避免寫到指定資料夾以外的地方。"""
+    name = re.sub(r'[\\/:*?"<>|\x00-\x1f]', "_", name.strip())
+    name = name.strip(". ")
+    return name or fallback
 
 
 def collect_audio_files(inputs: list[str]) -> list[Path]:

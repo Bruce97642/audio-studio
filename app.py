@@ -423,25 +423,32 @@ def step2() -> None:
     if col1.button("開始清理 ✨", type="primary", use_container_width=True):
         preset = next(v for k, v in PRESET_MAP.items() if use.startswith(k))
         style_key = STYLE_MAP[style.split(" — ")[0]]
-        with st.spinner("AI 清理中，請稍候…（背景有音樂時可能要一兩分鐘）"):
-            out = clean(st.session_state.src,
-                        output=Path(st.session_state.workdir) / "clean.mp3",
-                        preset=preset, denoise=LEVEL_MAP[level],
-                        style=style_key, dehum=dehum, declip=declip,
-                        separate=separate)
-            # 原音調到同響度，做公平的 A/B 對比
-            from audio_studio.pipeline import match_loudness
-            try:
-                ref = match_loudness(
-                    st.session_state.src,
-                    Path(st.session_state.workdir) / "原音對照.mp3",
-                    preset=preset)
-                st.session_state.ref = str(ref)
-            except Exception:
-                st.session_state.ref = None
-        st.session_state.history = [str(out)]
-        st.session_state.msg = "清理完成！先聽聽看，需要剪的地方直接打字跟我說。"
-        goto(3)
+        try:
+            with st.spinner("AI 清理中，請稍候…（背景有音樂時可能要一兩分鐘）"):
+                out = clean(st.session_state.src,
+                            output=Path(st.session_state.workdir)
+                            / "clean.mp3",
+                            preset=preset, denoise=LEVEL_MAP[level],
+                            style=style_key, dehum=dehum, declip=declip,
+                            separate=separate)
+                # 原音調到同響度，做公平的 A/B 對比
+                from audio_studio.pipeline import match_loudness
+                try:
+                    ref = match_loudness(
+                        st.session_state.src,
+                        Path(st.session_state.workdir) / "原音對照.mp3",
+                        preset=preset)
+                    st.session_state.ref = str(ref)
+                except Exception:
+                    st.session_state.ref = None
+        except Exception as exc:  # 檔案壞掉等問題，用白話講而不是紅屏
+            st.error(f"清理失敗：{exc}\n\n"
+                     "檔案可能損壞或格式不支援，回上一步換個檔案試試。")
+        else:
+            st.session_state.history = [str(out)]
+            st.session_state.msg = ("清理完成！先聽聽看，"
+                                    "需要剪的地方直接打字跟我說。")
+            goto(3)
     if col2.button("← 上一步", use_container_width=True):
         goto(1)
 
@@ -582,7 +589,9 @@ def step3() -> None:
 
 def step4() -> None:
     st.subheader("輸出設定")
-    default_name = Path(st.session_state.orig_name).stem + "_乾淨版"
+    from audio_studio.ffmpeg_utils import safe_filename
+    default_name = safe_filename(
+        Path(st.session_state.orig_name).stem, "錄音") + "_乾淨版"
     name = st.text_input("檔名", value=default_name)
     fmt = st.radio("格式", ["mp3（最通用，建議）", "wav（無損，檔案大）",
                            "m4a（Apple 系）"])
@@ -591,7 +600,7 @@ def step4() -> None:
     if col1.button("輸出成品 🎁", type="primary", use_container_width=True):
         ext = "." + fmt.split("（")[0]
         OUTPUT_DIR.mkdir(exist_ok=True)
-        out = OUTPUT_DIR / f"{name.strip() or default_name}{ext}"
+        out = OUTPUT_DIR / f"{safe_filename(name, default_name)}{ext}"
         with st.spinner("轉檔中…"):
             run_ffmpeg(["-i", st.session_state.history[-1],
                         *encode_args(out), str(out)])
